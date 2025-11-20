@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useInView } from 'react-intersection-observer';
 
@@ -151,13 +151,22 @@ const ErrorMessage = styled.div`
 `;
 
 const SuccessMessage = styled.div`
-  text-align: center;
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.5);
   color: #10b981;
-  font-size: 1.1rem;
-  padding: 1rem;
-  background: rgba(16, 185, 129, 0.1);
-  border-radius: 6px;
-  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(10px);
 `;
 
 function Contact() {
@@ -174,6 +183,14 @@ function Contact() {
     threshold: 0.3,
     triggerOnce: true
   });
+
+  useEffect(() => {
+    if (!submitSuccess) return;
+    const timer = setTimeout(() => {
+      setSubmitSuccess(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [submitSuccess]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -195,20 +212,36 @@ function Contact() {
     e.preventDefault();
     const newErrors = validateForm();
     
-    if (Object.keys(newErrors).length === 0) {
-      setIsSubmitting(true);
-      try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setSubmitSuccess(true);
-        setFormData({ name: '', email: '', message: '' });
-      } catch (error) {
-        setErrors({ submit: 'Failed to send message. Please try again.' });
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
+    if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      setSubmitSuccess(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('https://formspree.io/f/meonnldl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        setFormData({ name: '', email: '', message: '' });
+        setErrors({});
+        setSubmitSuccess(true);
+      } else {
+        setErrors({ submit: 'Failed to send message. Please try again.' });
+        setSubmitSuccess(false);
+      }
+    } catch (error) {
+      setErrors({ submit: 'Failed to send message. Please try again.' });
+      setSubmitSuccess(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -229,18 +262,18 @@ function Contact() {
 
   return (
     <ContactSection id="contact" ref={ref}>
+      {submitSuccess && (
+        <SuccessMessage>
+          Thank you for your message! I'll get back to you soon.
+        </SuccessMessage>
+      )}
+
       <Container delay="0.2s">
         <Title>Get in Touch</Title>
         <Description>
           Have a question or want to work together? Drop me a message!
         </Description>
         
-        {submitSuccess && (
-          <SuccessMessage>
-            Thank you for your message! I'll get back to you soon.
-          </SuccessMessage>
-        )}
-
         <Form onSubmit={handleSubmit}>
           <FormGroup>
             <Label htmlFor="name">Name</Label>
